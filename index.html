@@ -13,7 +13,7 @@
   <!-- Firebase v9 Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script> <!-- 変更: FirestoreからRealtime DBへ -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <style>
     /* 
@@ -99,6 +99,9 @@
       font-weight: 700;
       letter-spacing: -0.5px;
       padding: 0 20px 10px 20px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
     }
 
     .nav-btn {
@@ -326,14 +329,14 @@
       storageBucket: "laspa-bada3.firebasestorage.app",
       messagingSenderId: "62622439446",
       appId: "1:62622439446:web:9edd1cca2409d93c23bd37",
-      databaseURL: "https://laspa-bada3-default-rtdb.firebaseio.com" // Realtime DBのURL
+      databaseURL: "https://laspa-bada3-default-rtdb.firebaseio.com"
     };
 
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     const auth = firebase.auth();
-    const db = firebase.database(); // Realtime Databaseに変更
+    const db = firebase.database();
 
     // --- Default Data ---
     const defaultDecks = [
@@ -427,6 +430,7 @@
       // App State
       const [view, setView] = useState('library'); 
       const [isLibraryEditing, setIsLibraryEditing] = useState(false);
+      const [isSyncing, setIsSyncing] = useState(false);
       
       // Study State
       const [activeDeckId, setActiveDeckId] = useState(null);
@@ -474,16 +478,21 @@
         };
       }, []);
 
-      const syncToCloud = (newDecks, newProgress) => {
-        if (authUser) {
-          db.ref('users/' + authUser.uid).update({
+      const syncToCloud = async (newDecks, newProgress) => {
+        if (!authUser) return;
+        setIsSyncing(true);
+        try {
+          await db.ref('users/' + authUser.uid).update({
             decks: newDecks || decks,
             allProgress: newProgress || allProgress,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
-          }).catch(e => {
-            console.error("Cloud Sync Error:", e);
-            alert("同期エラー: " + e.message);
           });
+          setIsSyncing(false);
+          return true;
+        } catch (e) {
+          console.error("Cloud Sync Error:", e);
+          setIsSyncing(false);
+          throw e;
         }
       };
 
@@ -516,7 +525,6 @@
       const handleRegister = async () => {
         try {
           const cred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
-          // 登録直後に現在のローカルデータをクラウドにアップロード
           await db.ref('users/' + cred.user.uid).set({
             decks: decks,
             allProgress: allProgress,
@@ -581,7 +589,6 @@
             if (currentCard.score >= targetScore) {
               if (newQueue.length === 0) {
                 setView('complete');
-                // 学習完了時に同期
                 if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { queue: [], initialTotal, studyMode, timeLeft }});
               }
               return newQueue;
@@ -603,12 +610,10 @@
       }, [isFlipped, queue, studyMode, authUser, allProgress, activeDeckId, initialTotal, timeLeft]);
 
       const quitStudy = () => {
-        // 中断時に同期
         if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { queue, initialTotal, studyMode, timeLeft }});
         setView('library');
       };
 
-      // --- Tag Sorting Handler ---
       const handleMoveTag = (tag, direction) => {
         const currentDeck = decks.find(d => d.id === activeDeckId);
         if (!currentDeck) return;
@@ -634,7 +639,6 @@
         syncToCloud(newDecks, null);
       };
 
-      // --- CSV Logic ---
       const parseCSVToQuestions = (text) => {
         const lines = text.split(/\r?\n/);
         const questions = [];
@@ -653,7 +657,6 @@
         return questions;
       };
 
-      // --- Renders ---
       if (authLoading) {
         return <div className="app-container" style={{justifyContent: 'center', alignItems: 'center'}}>読み込み中...</div>;
       }
@@ -701,7 +704,9 @@
                 {isLibraryEditing ? '完了' : '編集'}
               </button>
             </div>
-            <div className="header-large-title">Laspa</div>
+            <div className="header-large-title">
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>(v4)</span>
+            </div>
             
             <div className="content-area">
               {decks.length === 0 ? (
@@ -767,14 +772,22 @@
                     <div className="ios-row">
                       <div style={{color: 'var(--text-secondary)'}}>ログイン中: {authUser.email}</div>
                     </div>
-                    <div className="ios-row clickable" onClick={() => {
-                      syncToCloud(decks, allProgress);
-                      alert('現在の端末のデータをクラウドに保存（上書き）しました！\nこれで他の端末にも同期されます。');
+                    <div className="ios-row clickable" onClick={async () => {
+                      try {
+                        await syncToCloud(decks, allProgress);
+                        alert('現在の端末のデータをクラウドに保存（上書き）しました！\nこれで他の端末にも同期されます。');
+                      } catch (e) {
+                        alert('保存エラー: データベースの権限がないか、通信に失敗しました。詳細: ' + e.message);
+                      }
                     }}>
-                      <div style={{color: 'var(--accent-color)', fontWeight: 500}}>⇧ データをクラウドに強制保存</div>
+                      <div style={{color: 'var(--accent-color)', fontWeight: 500}}>
+                        {isSyncing ? '通信中...' : '⇧ データをクラウドに強制保存'}
+                      </div>
                     </div>
-                    <div className="ios-row clickable" onClick={() => {
-                      db.ref('users/' + authUser.uid).once('value').then(snapshot => {
+                    <div className="ios-row clickable" onClick={async () => {
+                      try {
+                        setIsSyncing(true);
+                        const snapshot = await db.ref('users/' + authUser.uid).once('value');
                         const data = snapshot.val();
                         if (data) {
                           if (data.decks) setDecks(data.decks);
@@ -783,9 +796,15 @@
                         } else {
                           alert('クラウドにデータがありません。先に「強制保存」を行ってください。');
                         }
-                      }).catch(e => alert("読み込みエラー: " + e.message));
+                        setIsSyncing(false);
+                      } catch (e) {
+                        setIsSyncing(false);
+                        alert("読み込みエラー: データベースの権限がないか、通信に失敗しました。詳細: " + e.message);
+                      }
                     }}>
-                      <div style={{color: 'var(--accent-color)', fontWeight: 500}}>⇩ クラウドからデータを読み込む</div>
+                      <div style={{color: 'var(--accent-color)', fontWeight: 500}}>
+                        {isSyncing ? '通信中...' : '⇩ クラウドからデータを読み込む'}
+                      </div>
                     </div>
                     <div className="ios-row clickable" onClick={() => auth.signOut()}>
                       <div style={{color: 'var(--destructive)', fontWeight: 500}}>サインアウト</div>
