@@ -750,7 +750,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.0</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.1</span>
             </div>
             
             <div className="content-area">
@@ -962,13 +962,23 @@
       if (view === 'mode') {
         const deck = decks.find(d => d.id === activeDeckId);
         const prog = allProgress[activeDeckId];
-        const hasProgress = prog && prog.queue.length > 0 && prog.queue.length < prog.initialTotal;
+        const hasProgress = prog && prog.queue.length > 0;
 
         // タグの抽出と並び替え
         const allSet = new Set();
         if (deck) { deck.questions.forEach(q => { if (q.tags) q.tags.split(',').forEach(t => { if(t.trim()) allSet.add(t.trim()); }); }); }
         let tagsArray = deck?.tagOrder ? [...deck.tagOrder].filter(t => allSet.has(t)) : [];
         Array.from(allSet).forEach(t => { if (!tagsArray.includes(t)) tagsArray.push(t); });
+
+        // 円グラフ（学習状況）の計算
+        const total = prog ? prog.initialTotal : (deck ? deck.questions.length : 0);
+        const completed = prog ? (prog.initialTotal - prog.queue.length) : 0;
+        const learning = prog ? prog.queue.filter(q => q.score > 0).length : 0;
+        const weak = total - completed - learning;
+        
+        const completedDeg = total > 0 ? (completed / total) * 360 : 0;
+        const learningDeg = total > 0 ? (learning / total) * 360 : 0;
+        const percent = total > 0 ? Math.floor((completed / total) * 100) : 0;
 
         return (
           <div className="app-container">
@@ -979,7 +989,28 @@
             </div>
 
             <div className="content-area">
-              {hasProgress && (
+              <div className="ios-group-title">学習状況</div>
+              <div className="ios-group" style={{padding: '24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px'}}>
+                <div style={{
+                  width: '110px', height: '110px', borderRadius: '50%',
+                  background: `conic-gradient(var(--success) 0deg ${completedDeg}deg, var(--warning) ${completedDeg}deg ${completedDeg + learningDeg}deg, var(--divider) ${completedDeg + learningDeg}deg 360deg)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <div style={{
+                    width: '74px', height: '74px', borderRadius: '50%', backgroundColor: 'var(--card-bg)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <span style={{fontSize: '1.4rem', fontWeight: 700}}>{percent}<span style={{fontSize: '0.8rem', fontWeight: 500}}>%</span></span>
+                  </div>
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.95rem', fontWeight: 500}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--success)'}}>●</span> 完了: {completed}</div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--warning)'}}>●</span> 学習中: {learning}</div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--divider)'}}>●</span> 未着手: {weak}</div>
+                </div>
+              </div>
+
+              {hasProgress ? (
                 <>
                   <div className="ios-group-title">再開</div>
                   <div className="ios-group">
@@ -992,57 +1023,59 @@
                     </div>
                   </div>
                 </>
-              )}
-              
-              {tagsArray.length > 0 && (
+              ) : (
                 <>
-                  <div className="ios-group-title" style={{display: 'flex', justifyContent: 'space-between', paddingRight: '16px'}}>
-                    <span>学習する範囲（タグ）</span>
-                    <span style={{color: 'var(--accent-color)', textTransform: 'none', cursor: 'pointer'}} onClick={() => setIsReorderingTags(!isReorderingTags)}>
-                      {isReorderingTags ? '完了' : '並び替え'}
-                    </span>
-                  </div>
-                  <div className="ios-group">
-                    {!isReorderingTags && (
-                      <div className="ios-row clickable" onClick={() => setSelectedTag(null)}>
-                        <div style={{color: 'var(--text-color)'}}>すべてのカード</div>
-                        {selectedTag === null && <div className="check-icon">✓</div>}
+                  {tagsArray.length > 0 && (
+                    <>
+                      <div className="ios-group-title" style={{display: 'flex', justifyContent: 'space-between', paddingRight: '16px'}}>
+                        <span>学習する範囲（タグ）</span>
+                        <span style={{color: 'var(--accent-color)', textTransform: 'none', cursor: 'pointer'}} onClick={() => setIsReorderingTags(!isReorderingTags)}>
+                          {isReorderingTags ? '完了' : '並び替え'}
+                        </span>
                       </div>
-                    )}
-                    
-                    {tagsArray.map((tag, index) => (
-                      <div key={tag} className={`ios-row ${!isReorderingTags ? 'clickable' : ''}`} onClick={() => { if(!isReorderingTags) setSelectedTag(tag); }}>
-                        <div style={{color: 'var(--text-color)'}}>{tag}</div>
-                        
-                        {!isReorderingTags ? (
-                          selectedTag === tag && <div className="check-icon">✓</div>
-                        ) : (
-                          <div style={{display: 'flex', gap: '20px'}}>
-                            <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'up')} disabled={index === 0}>↑</button>
-                            <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'down')} disabled={index === tagsArray.length - 1}>↓</button>
+                      <div className="ios-group">
+                        {!isReorderingTags && (
+                          <div className="ios-row clickable" onClick={() => setSelectedTag(null)}>
+                            <div style={{color: 'var(--text-color)'}}>すべてのカード</div>
+                            {selectedTag === null && <div className="check-icon">✓</div>}
                           </div>
                         )}
+                        
+                        {tagsArray.map((tag, index) => (
+                          <div key={tag} className={`ios-row ${!isReorderingTags ? 'clickable' : ''}`} onClick={() => { if(!isReorderingTags) setSelectedTag(tag); }}>
+                            <div style={{color: 'var(--text-color)'}}>{tag}</div>
+                            
+                            {!isReorderingTags ? (
+                              selectedTag === tag && <div className="check-icon">✓</div>
+                            ) : (
+                              <div style={{display: 'flex', gap: '20px'}}>
+                                <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'up')} disabled={index === 0}>↑</button>
+                                <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'down')} disabled={index === tagsArray.length - 1}>↓</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </>
+                  )}
+
+                  <div className="ios-group-title">目標モード</div>
+                  <div className="ios-group">
+                    <div className="ios-row clickable" onClick={() => handleSelectMode('60')}>
+                      <div style={{color: 'var(--success)'}}>{MODE_CONFIGS['60'].label}</div>
+                      <div className="chevron-right">›</div>
+                    </div>
+                    <div className="ios-row clickable" onClick={() => handleSelectMode('80')}>
+                      <div style={{color: 'var(--warning)'}}>{MODE_CONFIGS['80'].label}</div>
+                      <div className="chevron-right">›</div>
+                    </div>
+                    <div className="ios-row clickable" onClick={() => handleSelectMode('100')}>
+                      <div style={{color: 'var(--destructive)'}}>{MODE_CONFIGS['100'].label}</div>
+                      <div className="chevron-right">›</div>
+                    </div>
                   </div>
                 </>
               )}
-
-              <div className="ios-group-title">目標モード {prog && '(最初からやり直す)'}</div>
-              <div className="ios-group">
-                <div className="ios-row clickable" onClick={() => handleSelectMode('60')}>
-                  <div style={{color: 'var(--success)'}}>{MODE_CONFIGS['60'].label}</div>
-                  <div className="chevron-right">›</div>
-                </div>
-                <div className="ios-row clickable" onClick={() => handleSelectMode('80')}>
-                  <div style={{color: 'var(--warning)'}}>{MODE_CONFIGS['80'].label}</div>
-                  <div className="chevron-right">›</div>
-                </div>
-                <div className="ios-row clickable" onClick={() => handleSelectMode('100')}>
-                  <div style={{color: 'var(--destructive)'}}>{MODE_CONFIGS['100'].label}</div>
-                  <div className="chevron-right">›</div>
-                </div>
-              </div>
 
               {prog && (
                 <>
