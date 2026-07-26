@@ -750,7 +750,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>(v5)</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>(v6)</span>
             </div>
             
             <div className="content-area">
@@ -1028,7 +1028,7 @@
                 </>
               )}
 
-              <div className="ios-group-title">目標モード {hasProgress && '(最初からやり直す)'}</div>
+              <div className="ios-group-title">目標モード {prog && '(最初からやり直す)'}</div>
               <div className="ios-group">
                 <div className="ios-row clickable" onClick={() => handleSelectMode('60')}>
                   <div style={{color: 'var(--success)'}}>{MODE_CONFIGS['60'].label}</div>
@@ -1043,6 +1043,25 @@
                   <div className="chevron-right">›</div>
                 </div>
               </div>
+
+              {prog && (
+                <>
+                  <div className="ios-group-title">データ管理</div>
+                  <div className="ios-group">
+                    <div className="ios-row clickable" onClick={() => {
+                      if (window.confirm('この単語帳の学習進捗（何%完了したか）をリセットし、未実施の状態に戻しますか？\n※単語帳のデータ自体は消えません。')) {
+                        const newProgress = { ...allProgress };
+                        delete newProgress[activeDeckId];
+                        setAllProgress(newProgress);
+                        syncToCloud(null, newProgress);
+                        setView('library');
+                      }
+                    }}>
+                      <div style={{color: 'var(--destructive)', fontWeight: 500}}>学習状況をリセット</div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
