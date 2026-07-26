@@ -583,7 +583,7 @@
             const targetScore = MODE_CONFIGS[studyMode].targetScore;
 
             if (result === 'perfect') currentCard.score += 2;
-            else if (result === 'soso') currentCard.score -= 1;
+            else if (result === 'soso') currentCard.score += 1;
             else if (result === 'bad') currentCard.score -= 2;
 
             if (currentCard.score >= targetScore) {
@@ -690,7 +690,7 @@
                 勉強したい単語帳を選ぶと、出題範囲（タグ）と目標モードを選べます。<br/><br/>
                 学習画面ではカードをタップして答えを確認し、自分の記憶度に合わせて下の3つのボタンを押してください。<br/>
                 ・<span style={{color: 'var(--destructive)', fontWeight: 600}}>全然ダメ</span>：すぐにまた出題されます。<br/>
-                ・<span style={{color: 'var(--warning)', fontWeight: 600}}>怪しい</span>：少し後にもう一度出題されます。<br/>
+                ・<span style={{color: 'var(--warning)', fontWeight: 600}}>もう少し</span>：少し後にもう一度出題されます。<br/>
                 ・<span style={{color: 'var(--success)', fontWeight: 600}}>完璧</span>：しばらく出題されなくなります。<br/><br/>
                 目標の定着度に達したカードはリストから消え、すべてのカードが消えれば学習完了です！
               </div>
@@ -750,7 +750,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.1</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.0.2</span>
             </div>
             
             <div className="content-area">
@@ -1132,7 +1132,7 @@
                   <span style={{fontSize: '0.75rem', fontWeight: 400, opacity: 0.8}}>(←)</span>
                 </button>
                 <button className="control-btn text-soso" onClick={() => handleJudge('soso')} disabled={!isFlipped}>
-                  <span>怪しい</span>
+                  <span>もう少し</span>
                   <span style={{fontSize: '0.75rem', fontWeight: 400, opacity: 0.8}}>(↓)</span>
                 </button>
                 <button className="control-btn text-perfect" onClick={() => handleJudge('perfect')} disabled={!isFlipped}>
