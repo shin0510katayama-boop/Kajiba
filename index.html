@@ -762,10 +762,11 @@
                     const prog = allProgress[deck.id];
                     let percent = 0; let progressLabel = "未実施";
                     if (prog && prog.initialTotal) {
-                      if (prog.queue.length === 0) { percent = 100; progressLabel = "完了"; }
+                      const queueArray = prog.queue || [];
+                      if (queueArray.length === 0) { percent = 100; progressLabel = "完了"; }
                       else {
-                        percent = Math.max(0, Math.floor((1 - prog.queue.length / prog.initialTotal) * 100));
-                        progressLabel = `進捗 ${percent}% (残り${prog.queue.length}枚)`;
+                        percent = Math.max(0, Math.floor((1 - queueArray.length / prog.initialTotal) * 100));
+                        progressLabel = `進捗 ${percent}% (残り${queueArray.length}枚)`;
                       }
                     }
 
@@ -962,7 +963,8 @@
       if (view === 'mode') {
         const deck = decks.find(d => d.id === activeDeckId);
         const prog = allProgress[activeDeckId];
-        const hasProgress = prog && prog.queue.length > 0;
+        const queueArray = prog ? (prog.queue || []) : [];
+        const hasProgress = prog && queueArray.length > 0;
 
         // タグの抽出と並び替え
         const allSet = new Set();
@@ -972,8 +974,8 @@
 
         // 円グラフ（学習状況）の計算
         const total = prog ? prog.initialTotal : (deck ? deck.questions.length : 0);
-        const completed = prog ? (prog.initialTotal - prog.queue.length) : 0;
-        const learning = prog ? prog.queue.filter(q => q.score > 0).length : 0;
+        const completed = prog ? (prog.initialTotal - queueArray.length) : 0;
+        const learning = prog ? queueArray.filter(q => q.score > 0).length : 0;
         const weak = total - completed - learning;
         
         const completedDeg = total > 0 ? (completed / total) * 360 : 0;
@@ -1015,10 +1017,10 @@
                   <div className="ios-group-title">再開</div>
                   <div className="ios-group">
                     <div className="ios-row clickable" onClick={() => {
-                       setStudyMode(prog.studyMode); setQueue(prog.queue); setInitialTotal(prog.initialTotal); setTimeLeft(prog.timeLeft); setIsFlipped(false); setView('study');
+                       setStudyMode(prog.studyMode); setQueue(queueArray); setInitialTotal(prog.initialTotal); setTimeLeft(prog.timeLeft); setIsFlipped(false); setView('study');
                     }}>
                       <div style={{color: 'var(--accent-color)', fontWeight: 500}}>
-                        ▶️ 続きから再開する (残り{prog.queue.length}枚)
+                        ▶️ 続きから再開する (残り{queueArray.length}枚)
                       </div>
                     </div>
                   </div>
