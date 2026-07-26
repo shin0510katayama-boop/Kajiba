@@ -657,8 +657,53 @@
         return questions;
       };
 
+      // --- Renders ---
       if (authLoading) {
         return <div className="app-container" style={{justifyContent: 'center', alignItems: 'center'}}>読み込み中...</div>;
+      }
+
+      if (view === 'help') {
+        return (
+          <div className="app-container">
+            <div className="header-bar">
+              <button className="nav-btn" onClick={() => setView('library')}>〈 戻る</button>
+              <div className="header-title">使い方ガイド</div>
+              <div style={{width: '60px'}}></div>
+            </div>
+            <div className="content-area">
+              <div style={{textAlign: 'center', margin: '30px 0 20px 0'}}>
+                <h2 style={{fontSize: '1.6rem', marginBottom: '8px', fontWeight: 700}}>Laspa へようこそ！</h2>
+                <p style={{color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.5'}}>
+                  一夜漬けに特化したスマート単語帳です。<br/>効率よく暗記するための使い方をご紹介します。
+                </p>
+              </div>
+
+              <div className="ios-group-title">1. 単語帳の作り方</div>
+              <div className="ios-group" style={{padding: '16px', fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-color)'}}>
+                ライブラリ画面の <strong style={{color: 'var(--accent-color)'}}>「新規作成」</strong> から、手入力で単語帳を作成できます。<br/><br/>
+                パソコンで作成したExcelやスプレッドシートのデータを一気に読み込むには、画面左上の <strong style={{color: 'var(--accent-color)'}}>「読込」</strong> をタップし、保存したCSVファイルを選択してください。<br/>
+                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>※CSVの形式は「A列：問題」「B列：答え」「C列：タグ」にしてください。</span>
+              </div>
+
+              <div className="ios-group-title">2. 効率よく暗記する（独自アルゴリズム）</div>
+              <div className="ios-group" style={{padding: '16px', fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-color)'}}>
+                勉強したい単語帳を選ぶと、出題範囲（タグ）と目標モードを選べます。<br/><br/>
+                学習画面ではカードをタップして答えを確認し、自分の記憶度に合わせて下の3つのボタンを押してください。<br/>
+                ・<span style={{color: 'var(--destructive)', fontWeight: 600}}>全然ダメ</span>：すぐにまた出題されます。<br/>
+                ・<span style={{color: 'var(--warning)', fontWeight: 600}}>怪しい</span>：少し後にもう一度出題されます。<br/>
+                ・<span style={{color: 'var(--success)', fontWeight: 600}}>完璧</span>：しばらく出題されなくなります。<br/><br/>
+                目標の定着度に達したカードはリストから消え、すべてのカードが消えれば学習完了です！
+              </div>
+
+              <div className="ios-group-title">3. 複数端末で同期する</div>
+              <div className="ios-group" style={{padding: '16px', fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-color)'}}>
+                無料のアカウントを作成してサインインすると、単語帳データがクラウドに保存されます。<br/><br/>
+                パソコンで単語帳を作り、電車の中ではスマホでログインして続きを勉強する…といった使い方が可能です。<br/>
+                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>※通信状況などで同期がうまくいかない場合は、設定にある「データをクラウドに強制保存」ボタンをお試しください。</span>
+              </div>
+            </div>
+          </div>
+        );
       }
 
       if (view === 'login') {
@@ -762,6 +807,14 @@
                   setView('edit');
                 }}>
                   <div style={{color: 'var(--accent-color)', fontWeight: 500}}>新規作成</div>
+                </div>
+              </div>
+
+              <div className="ios-group-title">サポート</div>
+              <div className="ios-group">
+                <div className="ios-row clickable" onClick={() => setView('help')}>
+                  <div style={{color: 'var(--accent-color)', fontWeight: 500}}>📖 使い方ガイド</div>
+                  <div className="chevron-right">›</div>
                 </div>
               </div>
 
