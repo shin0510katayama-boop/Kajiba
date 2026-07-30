@@ -804,7 +804,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.0.3</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.1</span>
             </div>
             
             <div className="content-area">
@@ -815,12 +815,15 @@
                   {decks.map(deck => {
                     const prog = allProgress[deck.id];
                     let percent = 0; let progressLabel = "未実施";
-                    if (prog && prog.initialTotal) {
-                      const queueArray = prog.queue || [];
-                      if (queueArray.length === 0) { percent = 100; progressLabel = "完了"; }
-                      else {
-                        percent = Math.max(0, Math.floor((1 - queueArray.length / prog.initialTotal) * 100));
-                        progressLabel = `進捗 ${percent}% (残り${queueArray.length}枚)`;
+                    if (prog) {
+                      const deckScores = getCurrentScores(deck.id);
+                      const targetScore = prog.studyMode ? MODE_CONFIGS[prog.studyMode].targetScore : 2;
+                      const total = deck.questions.length;
+                      const completed = deck.questions.filter(q => (deckScores[q.id] || 0) >= targetScore).length;
+                      if (total > 0) {
+                        percent = Math.floor((completed / total) * 100);
+                        if (percent === 100) progressLabel = "完了";
+                        else progressLabel = `進捗 ${percent}% (残り${total - completed}枚)`;
                       }
                     }
 
@@ -1019,6 +1022,9 @@
         const prog = allProgress[activeDeckId];
         const queueArray = prog ? (prog.queue || []) : [];
         const hasProgress = prog && queueArray.length > 0;
+        
+        const currentScores = getCurrentScores(activeDeckId);
+        const targetScore = prog?.studyMode ? MODE_CONFIGS[prog.studyMode].targetScore : 2;
 
         // タグの抽出と並び替え
         const allSet = new Set();
@@ -1027,9 +1033,9 @@
         Array.from(allSet).forEach(t => { if (!tagsArray.includes(t)) tagsArray.push(t); });
 
         // 円グラフ（学習状況）の計算
-        const total = prog ? prog.initialTotal : (deck ? deck.questions.length : 0);
-        const completed = prog ? (prog.initialTotal - queueArray.length) : 0;
-        const learning = prog ? queueArray.filter(q => q.score > 0).length : 0;
+        const total = deck ? deck.questions.length : 0;
+        const completed = deck ? deck.questions.filter(q => (currentScores[q.id] || 0) >= targetScore).length : 0;
+        const learning = deck ? deck.questions.filter(q => { const s = currentScores[q.id] || 0; return s > 0 && s < targetScore; }).length : 0;
         const weak = total - completed - learning;
         
         const completedDeg = total > 0 ? (completed / total) * 360 : 0;
