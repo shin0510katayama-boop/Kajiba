@@ -376,7 +376,7 @@
     const STORAGE_KEY_ALL_PROGRESS = 'cramming-flashcards-all-progress-v2';
 
     // --- Sub Components ---
-    function StudyHeader({ title, remainingCards, initialTimeLeft, onTimeUpdate, onQuit }) {
+    function StudyHeader({ title, remainingCards, progressPercent, initialTimeLeft, onTimeUpdate, onQuit }) {
       const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
       useEffect(() => { setTimeLeft(initialTimeLeft); }, [initialTimeLeft]);
       useEffect(() => {
@@ -401,13 +401,19 @@
       };
 
       return (
-        <div className="header-bar">
+        <div className="header-bar" style={{ position: 'relative' }}>
           <button className="nav-btn" onClick={onQuit}>〈 戻る</button>
           <div className="header-title" style={{textAlign: 'center', width: '50%'}}>
             <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>{title}</div>
-            <div style={{fontSize: '0.95rem'}}>{formatTime(timeLeft)} • 残り{remainingCards}</div>
+            <div style={{fontSize: '0.95rem'}}>{formatTime(timeLeft)} • 残り約{remainingCards}枚</div>
           </div>
           <div style={{width: '60px'}}></div>
+          {progressPercent !== undefined && (
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, height: '4px',
+              background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease-out'
+            }} />
+          )}
         </div>
       );
     }
@@ -804,7 +810,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.2</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.3</span>
             </div>
             
             <div className="content-area">
@@ -831,8 +837,9 @@
 
                       if (totalPoints > 0) {
                         percent = Math.floor((earnedPoints / totalPoints) * 100);
-                        if (completedCards === deck.questions.length) progressLabel = "完了";
-                        else progressLabel = `進捗 ${percent}% (残り${deck.questions.length - completedCards}枚)`;
+                        const equivalentRemaining = Math.max(0, Math.ceil((totalPoints - earnedPoints) / targetScore));
+                        if (equivalentRemaining === 0 && completedCards === deck.questions.length) progressLabel = "完了";
+                        else progressLabel = `進捗 ${percent}% (残り約${equivalentRemaining}枚)`;
                       }
                     }
 
@@ -1204,11 +1211,21 @@
 
       if (view === 'study') {
         const deck = decks.find(d => d.id === activeDeckId);
+        const target = MODE_CONFIGS[studyMode].targetScore;
+        const totalSessionPoints = initialTotal * target;
+        const currentQueuePoints = queue.reduce((sum, q) => sum + Math.min(q.score || 0, target), 0);
+        const completedSessionPoints = Math.max(0, initialTotal - queue.length) * target;
+        const earnedSessionPoints = currentQueuePoints + completedSessionPoints;
+        
+        const progressPercent = totalSessionPoints > 0 ? Math.floor((earnedSessionPoints / totalSessionPoints) * 100) : 0;
+        const equivalentRemaining = Math.max(0, Math.ceil((totalSessionPoints - earnedSessionPoints) / target));
+
         return (
           <div className="app-container">
             <StudyHeader 
               title={deck?.title}
-              remainingCards={queue.length} 
+              remainingCards={equivalentRemaining} 
+              progressPercent={progressPercent}
               initialTimeLeft={timeLeft}
               onTimeUpdate={(t) => setTimeLeft(t)}
               onQuit={quitStudy}
