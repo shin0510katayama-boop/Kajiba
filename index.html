@@ -500,13 +500,43 @@
       useEffect(() => { localStorage.setItem(STORAGE_KEY_DECKS, JSON.stringify(decks)); }, [decks]);
       useEffect(() => { localStorage.setItem(STORAGE_KEY_ALL_PROGRESS, JSON.stringify(allProgress)); }, [allProgress]);
 
+      // Helper to migrate and get current scores
+      const getCurrentScores = useCallback((deckId) => {
+        const prog = allProgress[deckId];
+        if (!prog) return {};
+        if (prog.scores) return prog.scores;
+        
+        // Migrate old queue to scores
+        const deck = decks.find(d => d.id === deckId);
+        if (!deck) return {};
+        const inferredScores = {};
+        const qArray = prog.queue || [];
+        const targetScore = prog.studyMode ? MODE_CONFIGS[prog.studyMode].targetScore : 2;
+        
+        deck.questions.forEach(q => {
+          const inQueue = qArray.find(x => x.id === q.id);
+          if (inQueue) {
+            inferredScores[q.id] = inQueue.score || 0;
+          } else {
+            inferredScores[q.id] = targetScore; // Assume completed
+          }
+        });
+        return inferredScores;
+      }, [allProgress, decks]);
+
       // Track active study progress locally
       useEffect(() => {
         if (activeDeckId && (view === 'study' || view === 'complete')) {
-          setAllProgress(prev => ({
-            ...prev,
-            [activeDeckId]: { queue, initialTotal, studyMode, timeLeft }
-          }));
+          setAllProgress(prev => {
+            const prog = prev[activeDeckId] || {};
+            const oldScores = prog.scores || getCurrentScores(activeDeckId);
+            const newScores = { ...oldScores };
+            queue.forEach(q => { newScores[q.id] = q.score; });
+            return {
+              ...prev,
+              [activeDeckId]: { queue, initialTotal, studyMode, timeLeft, scores: newScores }
+            };
+          });
         }
       }, [view, queue, activeDeckId, initialTotal, studyMode, timeLeft]);
 
@@ -563,11 +593,19 @@
           alert("該当するカードがありません。"); return;
         }
 
+        const currentScores = getCurrentScores(activeDeckId);
         setStudyMode(mode);
-        const shuffledQueue = filteredQuestions.map(q => ({...q, score: 0, _uid: Math.random()})).sort(() => Math.random() - 0.5);
+        const targetScore = MODE_CONFIGS[mode].targetScore;
+        
+        const remaining = filteredQuestions.filter(q => (currentScores[q.id] || 0) < targetScore);
+        if (remaining.length === 0) {
+          alert("この範囲はすでに目標を達成しています！"); return;
+        }
+
+        const shuffledQueue = remaining.map(q => ({...q, score: currentScores[q.id] || 0, _uid: Math.random()})).sort(() => Math.random() - 0.5);
         setQueue(shuffledQueue);
-        setInitialTotal(shuffledQueue.length);
-        setTimeLeft(DEFAULT_TIME_MS);
+        setInitialTotal(filteredQuestions.length);
+        setTimeLeft(allProgress[activeDeckId]?.timeLeft || DEFAULT_TIME_MS);
         setIsFlipped(false);
         setView('study');
       };
@@ -586,10 +624,22 @@
             else if (result === 'soso') currentCard.score += 1;
             else if (result === 'bad') currentCard.score -= 2;
 
+            setAllProgress(prev => {
+               const p = prev[activeDeckId] || {};
+               const s = p.scores || getCurrentScores(activeDeckId);
+               return {
+                 ...prev,
+                 [activeDeckId]: { ...p, scores: { ...s, [currentCard.id]: currentCard.score } }
+               };
+            });
+
             if (currentCard.score >= targetScore) {
               if (newQueue.length === 0) {
                 setView('complete');
-                if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { queue: [], initialTotal, studyMode, timeLeft }});
+                if (authUser) {
+                  const finalScores = { ...(allProgress[activeDeckId]?.scores || getCurrentScores(activeDeckId)), [currentCard.id]: currentCard.score };
+                  syncToCloud(null, {...allProgress, [activeDeckId]: { queue: [], initialTotal, studyMode, timeLeft, scores: finalScores }});
+                }
               }
               return newQueue;
             }
@@ -607,7 +657,7 @@
             return newQueue;
           });
         }, 200);
-      }, [isFlipped, queue, studyMode, authUser, allProgress, activeDeckId, initialTotal, timeLeft]);
+      }, [isFlipped, queue, studyMode, authUser, allProgress, activeDeckId, initialTotal, timeLeft, getCurrentScores]);
 
       const quitStudy = () => {
         if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { queue, initialTotal, studyMode, timeLeft }});
@@ -750,7 +800,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.0.2</span>
+              Laspa <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>2.0.3</span>
             </div>
             
             <div className="content-area">
@@ -992,27 +1042,60 @@
 
             <div className="content-area">
               <div className="ios-group-title">学習状況</div>
-              <div className="ios-group" style={{padding: '24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px'}}>
-                <div style={{
-                  width: '110px', height: '110px', borderRadius: '50%',
-                  background: `conic-gradient(var(--success) 0deg ${completedDeg}deg, var(--warning) ${completedDeg}deg ${completedDeg + learningDeg}deg, var(--divider) ${completedDeg + learningDeg}deg 360deg)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
+              <div className="ios-group" style={{padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px'}}>
                   <div style={{
-                    width: '74px', height: '74px', borderRadius: '50%', backgroundColor: 'var(--card-bg)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                    width: '110px', height: '110px', borderRadius: '50%',
+                    background: `conic-gradient(var(--success) 0deg ${completedDeg}deg, var(--warning) ${completedDeg}deg ${completedDeg + learningDeg}deg, var(--divider) ${completedDeg + learningDeg}deg 360deg)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
-                    <span style={{fontSize: '1.4rem', fontWeight: 700}}>{percent}<span style={{fontSize: '0.8rem', fontWeight: 500}}>%</span></span>
+                    <div style={{
+                      width: '74px', height: '74px', borderRadius: '50%', backgroundColor: 'var(--card-bg)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <span style={{fontSize: '1.4rem', fontWeight: 700}}>{percent}<span style={{fontSize: '0.8rem', fontWeight: 500}}>%</span></span>
+                    </div>
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.95rem', fontWeight: 500}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--success)'}}>●</span> 完了: {completed}</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--warning)'}}>●</span> 学習中: {learning}</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--divider)'}}>●</span> 未着手: {weak}</div>
                   </div>
                 </div>
-                <div style={{display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.95rem', fontWeight: 500}}>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--success)'}}>●</span> 完了: {completed}</div>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--warning)'}}>●</span> 学習中: {learning}</div>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span style={{color: 'var(--divider)'}}>●</span> 未着手: {weak}</div>
-                </div>
+                
+                {tagsArray.length > 0 && (
+                  <div style={{display: 'flex', overflowX: 'auto', gap: '16px', padding: '16px 8px 8px 8px', borderTop: '1px solid var(--divider)', margin: '0 -8px'}}>
+                    {tagsArray.map(tag => {
+                       const qs = deck.questions.filter(q => q.tags && q.tags.split(',').map(t=>t.trim()).includes(tag));
+                       const t = qs.length;
+                       const c = qs.filter(q => (currentScores[q.id] || 0) >= targetScore).length;
+                       const l = qs.filter(q => { const s = currentScores[q.id] || 0; return s > 0 && s < targetScore; }).length;
+                       const cDeg = t > 0 ? (c / t) * 360 : 0;
+                       const lDeg = t > 0 ? (l / t) * 360 : 0;
+                       const p = t > 0 ? Math.floor((c / t) * 100) : 0;
+                       return (
+                         <div key={tag} style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', minWidth: '70px', flexShrink: 0}}>
+                           <div style={{
+                             width: '56px', height: '56px', borderRadius: '50%',
+                             background: `conic-gradient(var(--success) 0deg ${cDeg}deg, var(--warning) ${cDeg}deg ${cDeg + lDeg}deg, var(--divider) ${cDeg + lDeg}deg 360deg)`,
+                             display: 'flex', alignItems: 'center', justifyContent: 'center'
+                           }}>
+                             <div style={{
+                               width: '38px', height: '38px', borderRadius: '50%', backgroundColor: 'var(--card-bg)',
+                               display: 'flex', alignItems: 'center', justifyContent: 'center'
+                             }}>
+                               <span style={{fontSize: '0.8rem', fontWeight: 700}}>{p}%</span>
+                             </div>
+                           </div>
+                           <div style={{fontSize: '0.75rem', color: 'var(--text-color)', fontWeight: 600, textAlign: 'center', width: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{tag}</div>
+                         </div>
+                       );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {hasProgress ? (
+              {hasProgress && (
                 <>
                   <div className="ios-group-title">再開</div>
                   <div className="ios-group">
@@ -1020,64 +1103,62 @@
                        setStudyMode(prog.studyMode); setQueue(queueArray); setInitialTotal(prog.initialTotal); setTimeLeft(prog.timeLeft); setIsFlipped(false); setView('study');
                     }}>
                       <div style={{color: 'var(--accent-color)', fontWeight: 500}}>
-                        ▶️ 続きから再開する (残り{queueArray.length}枚)
+                        ▶️ 現在のタグ・目標で再開する (残り{queueArray.length}枚)
                       </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {tagsArray.length > 0 && (
-                    <>
-                      <div className="ios-group-title" style={{display: 'flex', justifyContent: 'space-between', paddingRight: '16px'}}>
-                        <span>学習する範囲（タグ）</span>
-                        <span style={{color: 'var(--accent-color)', textTransform: 'none', cursor: 'pointer'}} onClick={() => setIsReorderingTags(!isReorderingTags)}>
-                          {isReorderingTags ? '完了' : '並び替え'}
-                        </span>
-                      </div>
-                      <div className="ios-group">
-                        {!isReorderingTags && (
-                          <div className="ios-row clickable" onClick={() => setSelectedTag(null)}>
-                            <div style={{color: 'var(--text-color)'}}>すべてのカード</div>
-                            {selectedTag === null && <div className="check-icon">✓</div>}
-                          </div>
-                        )}
-                        
-                        {tagsArray.map((tag, index) => (
-                          <div key={tag} className={`ios-row ${!isReorderingTags ? 'clickable' : ''}`} onClick={() => { if(!isReorderingTags) setSelectedTag(tag); }}>
-                            <div style={{color: 'var(--text-color)'}}>{tag}</div>
-                            
-                            {!isReorderingTags ? (
-                              selectedTag === tag && <div className="check-icon">✓</div>
-                            ) : (
-                              <div style={{display: 'flex', gap: '20px'}}>
-                                <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'up')} disabled={index === 0}>↑</button>
-                                <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'down')} disabled={index === tagsArray.length - 1}>↓</button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="ios-group-title">目標モード</div>
-                  <div className="ios-group">
-                    <div className="ios-row clickable" onClick={() => handleSelectMode('60')}>
-                      <div style={{color: 'var(--success)'}}>{MODE_CONFIGS['60'].label}</div>
-                      <div className="chevron-right">›</div>
-                    </div>
-                    <div className="ios-row clickable" onClick={() => handleSelectMode('80')}>
-                      <div style={{color: 'var(--warning)'}}>{MODE_CONFIGS['80'].label}</div>
-                      <div className="chevron-right">›</div>
-                    </div>
-                    <div className="ios-row clickable" onClick={() => handleSelectMode('100')}>
-                      <div style={{color: 'var(--destructive)'}}>{MODE_CONFIGS['100'].label}</div>
-                      <div className="chevron-right">›</div>
                     </div>
                   </div>
                 </>
               )}
+              
+              {tagsArray.length > 0 && (
+                <>
+                  <div className="ios-group-title" style={{display: 'flex', justifyContent: 'space-between', paddingRight: '16px'}}>
+                    <span>学習する範囲（タグ）</span>
+                    <span style={{color: 'var(--accent-color)', textTransform: 'none', cursor: 'pointer'}} onClick={() => setIsReorderingTags(!isReorderingTags)}>
+                      {isReorderingTags ? '完了' : '並び替え'}
+                    </span>
+                  </div>
+                  <div className="ios-group">
+                    {!isReorderingTags && (
+                      <div className="ios-row clickable" onClick={() => setSelectedTag(null)}>
+                        <div style={{color: 'var(--text-color)'}}>すべてのカード</div>
+                        {selectedTag === null && <div className="check-icon">✓</div>}
+                      </div>
+                    )}
+                    
+                    {tagsArray.map((tag, index) => (
+                      <div key={tag} className={`ios-row ${!isReorderingTags ? 'clickable' : ''}`} onClick={() => { if(!isReorderingTags) setSelectedTag(tag); }}>
+                        <div style={{color: 'var(--text-color)'}}>{tag}</div>
+                        
+                        {!isReorderingTags ? (
+                          selectedTag === tag && <div className="check-icon">✓</div>
+                        ) : (
+                          <div style={{display: 'flex', gap: '20px'}}>
+                            <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'up')} disabled={index === 0}>↑</button>
+                            <button className="tag-sort-btn" onClick={() => handleMoveTag(tag, 'down')} disabled={index === tagsArray.length - 1}>↓</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="ios-group-title">目標モード {hasProgress && '(進捗を引き継いで変更)'}</div>
+              <div className="ios-group">
+                <div className="ios-row clickable" onClick={() => handleSelectMode('60')}>
+                  <div style={{color: 'var(--success)'}}>{MODE_CONFIGS['60'].label}</div>
+                  <div className="chevron-right">›</div>
+                </div>
+                <div className="ios-row clickable" onClick={() => handleSelectMode('80')}>
+                  <div style={{color: 'var(--warning)'}}>{MODE_CONFIGS['80'].label}</div>
+                  <div className="chevron-right">›</div>
+                </div>
+                <div className="ios-row clickable" onClick={() => handleSelectMode('100')}>
+                  <div style={{color: 'var(--destructive)'}}>{MODE_CONFIGS['100'].label}</div>
+                  <div className="chevron-right">›</div>
+                </div>
+              </div>
 
               {prog && (
                 <>
