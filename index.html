@@ -613,32 +613,35 @@
       const handleJudge = useCallback((result) => {
         if (!isFlipped || queue.length === 0) return;
         setIsFlipped(false);
+        
+        const currentCard = { ...queue[0] };
+        const targetScore = MODE_CONFIGS[studyMode].targetScore;
+        
+        if (result === 'perfect') currentCard.score += 2;
+        else if (result === 'soso') currentCard.score += 1;
+        else if (result === 'bad') currentCard.score -= 2;
+
+        const prog = allProgress[activeDeckId] || {};
+        const currentScoresObj = prog.scores || getCurrentScores(activeDeckId);
+        const updatedScores = { ...currentScoresObj, [currentCard.id]: currentCard.score };
+        
+        setAllProgress({
+          ...allProgress,
+          [activeDeckId]: { ...prog, scores: updatedScores }
+        });
+
         setTimeout(() => {
           setQueue(prevQueue => {
             if (prevQueue.length === 0) return prevQueue;
-            const currentCard = { ...prevQueue[0] }; 
+            const card = { ...prevQueue[0] }; 
+            card.score = currentCard.score;
             const newQueue = [...prevQueue].slice(1);
-            const targetScore = MODE_CONFIGS[studyMode].targetScore;
 
-            if (result === 'perfect') currentCard.score += 2;
-            else if (result === 'soso') currentCard.score += 1;
-            else if (result === 'bad') currentCard.score -= 2;
-
-            setAllProgress(prev => {
-               const p = prev[activeDeckId] || {};
-               const s = p.scores || getCurrentScores(activeDeckId);
-               return {
-                 ...prev,
-                 [activeDeckId]: { ...p, scores: { ...s, [currentCard.id]: currentCard.score } }
-               };
-            });
-
-            if (currentCard.score >= targetScore) {
+            if (card.score >= targetScore) {
               if (newQueue.length === 0) {
                 setView('complete');
                 if (authUser) {
-                  const finalScores = { ...(allProgress[activeDeckId]?.scores || getCurrentScores(activeDeckId)), [currentCard.id]: currentCard.score };
-                  syncToCloud(null, {...allProgress, [activeDeckId]: { queue: [], initialTotal, studyMode, timeLeft, scores: finalScores }});
+                  syncToCloud(null, {...allProgress, [activeDeckId]: { ...prog, queue: [], initialTotal, studyMode, timeLeft, scores: updatedScores }});
                 }
               }
               return newQueue;
@@ -652,15 +655,16 @@
             interval = Math.min(interval, newQueue.length);
             if (interval === 0 && newQueue.length > 0) interval = 1;
 
-            currentCard._uid = Math.random();
-            newQueue.splice(interval, 0, currentCard);
+            card._uid = Math.random();
+            newQueue.splice(interval, 0, card);
             return newQueue;
           });
         }, 200);
       }, [isFlipped, queue, studyMode, authUser, allProgress, activeDeckId, initialTotal, timeLeft, getCurrentScores]);
 
       const quitStudy = () => {
-        if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { queue, initialTotal, studyMode, timeLeft }});
+        const prog = allProgress[activeDeckId] || {};
+        if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { ...prog, queue, initialTotal, studyMode, timeLeft }});
         setView('library');
       };
 
