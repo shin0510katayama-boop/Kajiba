@@ -235,6 +235,7 @@
       height: 100%;
       backface-visibility: hidden;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       background: var(--card-bg);
@@ -1249,7 +1250,7 @@
                     {queue[0]?.answer}
                     
                     {queue[0]?.explanation && (
-                      <div style={{marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--divider)'}}>
+                      <div style={{width: '100%', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--divider)'}}>
                         {!showExplanation ? (
                           <button 
                             style={{
