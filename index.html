@@ -588,11 +588,25 @@
         }
 
         const shuffledQueue = remaining.map(q => ({...q, score: currentScores[q.id] || 0, _uid: Math.random()})).sort(() => Math.random() - 0.5);
+        
+        const prog = allProgress[activeDeckId] || {};
+        const newProgressObj = {
+          ...prog,
+          queue: shuffledQueue,
+          initialTotal: filteredQuestions.length,
+          studyMode: mode,
+          timeLeft: prog.timeLeft || DEFAULT_TIME_MS,
+          scores: currentScores
+        };
+        const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj };
+
         setQueue(shuffledQueue);
         setInitialTotal(filteredQuestions.length);
-        setTimeLeft(allProgress[activeDeckId]?.timeLeft || DEFAULT_TIME_MS);
+        setTimeLeft(prog.timeLeft || DEFAULT_TIME_MS);
         setIsFlipped(false);
         setShowExplanation(false);
+        setAllProgress(newAllProgress);
+        if (authUser) syncToCloud(null, newAllProgress);
         setView('study');
       };
 
@@ -612,28 +626,12 @@
         const currentScoresObj = prog.scores || getCurrentScores(activeDeckId);
         const updatedScores = { ...currentScoresObj, [currentCard.id]: currentCard.score };
         
-        setAllProgress({
-          ...allProgress,
-          [activeDeckId]: { ...prog, scores: updatedScores }
-        });
-
         setTimeout(() => {
-          setQueue(prevQueue => {
-            if (prevQueue.length === 0) return prevQueue;
-            const card = { ...prevQueue[0] }; 
-            card.score = currentCard.score;
-            const newQueue = [...prevQueue].slice(1);
+          let newQueue = [...queue].slice(1);
+          const card = { ...queue[0] }; 
+          card.score = currentCard.score;
 
-            if (card.score >= targetScore) {
-              if (newQueue.length === 0) {
-                setView('complete');
-                if (authUser) {
-                  syncToCloud(null, {...allProgress, [activeDeckId]: { ...prog, queue: [], initialTotal, studyMode, timeLeft, scores: updatedScores }});
-                }
-              }
-              return newQueue;
-            }
-
+          if (card.score < targetScore) {
             let interval = 0;
             if (result === 'bad') interval = Math.floor(Math.random() * 3) + 2;
             else if (result === 'soso') interval = Math.floor(Math.random() * 5) + 5;
@@ -644,8 +642,19 @@
 
             card._uid = Math.random();
             newQueue.splice(interval, 0, card);
-            return newQueue;
-          });
+          }
+
+          setQueue(newQueue);
+
+          const newProgressObj = { ...prog, queue: newQueue, initialTotal, studyMode, timeLeft, scores: updatedScores };
+          const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj };
+          
+          setAllProgress(newAllProgress);
+          if (authUser) syncToCloud(null, newAllProgress);
+
+          if (card.score >= targetScore && newQueue.length === 0) {
+            setView('complete');
+          }
         }, 200);
       }, [isFlipped, queue, studyMode, authUser, allProgress, activeDeckId, initialTotal, timeLeft, getCurrentScores]);
 
@@ -792,7 +801,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.3</span>
+              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.4</span>
             </div>
             
             <div className="content-area">
