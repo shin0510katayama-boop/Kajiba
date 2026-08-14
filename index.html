@@ -477,7 +477,16 @@
               const data = snapshot.val();
               if (data) {
                 if (data.decks) setDecks(data.decks);
-                if (data.allProgress) setAllProgress(data.allProgress);
+                if (data.allProgress) {
+                  setAllProgress(prev => {
+                    const localTime = prev._localUpdate || 0;
+                    const cloudTime = data.allProgress._localUpdate || 0;
+                    if (cloudTime >= localTime) {
+                      return data.allProgress;
+                    }
+                    return prev;
+                  });
+                }
               }
             }, (error) => {
               console.error("Realtime DB Error:", error);
@@ -628,7 +637,7 @@
           timeLeft: prog.timeLeft || DEFAULT_TIME_MS,
           scores: currentScores
         };
-        const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj };
+        const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj, _localUpdate: Date.now() };
 
         setQueue(shuffledQueue);
         setInitialTotal(filteredQuestions.length);
@@ -677,7 +686,7 @@
           setQueue(newQueue);
 
           const newProgressObj = { ...prog, queue: newQueue, initialTotal, studyMode, timeLeft, scores: updatedScores };
-          const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj };
+          const newAllProgress = { ...allProgress, [activeDeckId]: newProgressObj, _localUpdate: Date.now() };
           
           setAllProgress(newAllProgress);
           if (authUser) syncToCloud(null, newAllProgress);
@@ -690,7 +699,8 @@
 
       const quitStudy = () => {
         const prog = allProgress[activeDeckId] || {};
-        if (authUser) syncToCloud(null, {...allProgress, [activeDeckId]: { ...prog, queue, initialTotal, studyMode, timeLeft }});
+        const newAllProgress = {...allProgress, [activeDeckId]: { ...prog, queue, initialTotal, studyMode, timeLeft }, _localUpdate: Date.now()};
+        if (authUser) syncToCloud(null, newAllProgress);
         setView('library');
       };
 
@@ -831,7 +841,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.5</span>
+              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.6</span>
             </div>
             
             <div className="content-area">
@@ -1216,7 +1226,7 @@
                   <div className="ios-group">
                     <div className="ios-row clickable" onClick={() => {
                       if (window.confirm('この単語帳の学習進捗（何%完了したか）をリセットし、未実施の状態に戻しますか？\n※単語帳のデータ自体は消えません。')) {
-                        const newProgress = { ...allProgress };
+                        const newProgress = { ...allProgress, _localUpdate: Date.now() };
                         delete newProgress[activeDeckId];
                         setAllProgress(newProgress);
                         syncToCloud(null, newProgress);
