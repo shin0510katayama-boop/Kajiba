@@ -427,6 +427,36 @@
       const [selectedTag, setSelectedTag] = useState(null);
       const [isReorderingTags, setIsReorderingTags] = useState(false);
 
+      useEffect(() => {
+        const savedView = localStorage.getItem('cramming-view');
+        const savedDeckId = localStorage.getItem('cramming-activeDeckId');
+        if (savedView === 'study' && savedDeckId) {
+          const savedProgress = localStorage.getItem(STORAGE_KEY_ALL_PROGRESS);
+          if (savedProgress) {
+            const parsed = JSON.parse(savedProgress);
+            const prog = parsed[savedDeckId];
+            if (prog && prog.queue && prog.queue.length > 0) {
+              setActiveDeckId(savedDeckId);
+              setStudyMode(prog.studyMode);
+              setQueue(prog.queue);
+              setInitialTotal(prog.initialTotal);
+              setTimeLeft(prog.timeLeft || DEFAULT_TIME_MS);
+              setView('study');
+              return;
+            }
+          }
+        }
+        if (savedView === 'mode' && savedDeckId) {
+          setActiveDeckId(savedDeckId);
+          setView('mode');
+        }
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('cramming-view', view);
+        if (activeDeckId) localStorage.setItem('cramming-activeDeckId', activeDeckId);
+      }, [view, activeDeckId]);
+
       // Edit State
       const [editDeckData, setEditDeckData] = useState(null);
       const fileInputRef = useRef(null);
@@ -801,7 +831,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.4</span>
+              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.5</span>
             </div>
             
             <div className="content-area">
