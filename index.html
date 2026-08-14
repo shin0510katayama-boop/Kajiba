@@ -813,7 +813,7 @@
                       
                       deck.questions.forEach(q => {
                          const s = deckScores[q.id] || 0;
-                         earnedPoints += Math.min(s, targetScore);
+                         earnedPoints += Math.max(0, Math.min(s, targetScore));
                          if (s >= targetScore) completedCards++;
                       });
 
@@ -1039,7 +1039,7 @@
         const learning = deck ? deck.questions.filter(q => { const s = currentScores[q.id] || 0; return s > 0 && s < targetScore; }).length : 0;
         const weak = total - completed - learning;
         const totalPoints = deck ? deck.questions.length * targetScore : 0;
-        const earnedPoints = deck ? deck.questions.reduce((sum, q) => sum + Math.min(currentScores[q.id] || 0, targetScore), 0) : 0;
+        const earnedPoints = deck ? deck.questions.reduce((sum, q) => sum + Math.max(0, Math.min(currentScores[q.id] || 0, targetScore)), 0) : 0;
         const percent = totalPoints > 0 ? Math.floor((earnedPoints / totalPoints) * 100) : 0;
         const completedDeg = (percent / 100) * 360;
 
@@ -1080,7 +1080,7 @@
                        const qs = deck.questions.filter(q => q.tags && q.tags.split(',').map(t=>t.trim()).includes(tag));
                        const t = qs.length;
                        const tPoints = t * targetScore;
-                       const ePoints = qs.reduce((sum, q) => sum + Math.min(currentScores[q.id] || 0, targetScore), 0);
+                       const ePoints = qs.reduce((sum, q) => sum + Math.max(0, Math.min(currentScores[q.id] || 0, targetScore)), 0);
                        const p = tPoints > 0 ? Math.floor((ePoints / tPoints) * 100) : 0;
                        const cDeg = (p / 100) * 360;
                        
@@ -1198,7 +1198,7 @@
         const deck = decks.find(d => d.id === activeDeckId);
         const target = MODE_CONFIGS[studyMode].targetScore;
         const totalSessionPoints = initialTotal * target;
-        const currentQueuePoints = queue.reduce((sum, q) => sum + Math.min(q.score || 0, target), 0);
+        const currentQueuePoints = queue.reduce((sum, q) => sum + Math.max(0, Math.min(q.score || 0, target)), 0);
         const completedSessionPoints = Math.max(0, initialTotal - queue.length) * target;
         const earnedSessionPoints = currentQueuePoints + completedSessionPoints;
         
