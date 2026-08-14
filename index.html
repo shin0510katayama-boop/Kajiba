@@ -461,6 +461,8 @@
       const [editDeckData, setEditDeckData] = useState(null);
       const fileInputRef = useRef(null);
       const appendCsvInputRef = useRef(null);
+      const directAppendCsvInputRef = useRef(null);
+      const [appendTargetDeckId, setAppendTargetDeckId] = useState(null);
 
       // Auth Forms
       const [authEmail, setAuthEmail] = useState('');
@@ -841,7 +843,7 @@
               </button>
             </div>
             <div className="header-large-title">
-              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.6</span>
+              Kajiba <span style={{fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400}}>3.0.7</span>
             </div>
             
             <div className="content-area">
@@ -986,6 +988,27 @@
                   syncToCloud(newDecks, null);
                 }
                 e.target.value = '';
+              };
+              reader.readAsText(file);
+            }} />
+            <input type="file" accept=".csv" style={{display: 'none'}} ref={directAppendCsvInputRef} onChange={e => {
+              const file = e.target.files[0]; if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                const qs = parseCSVToQuestions(event.target.result);
+                if (qs.length > 0 && appendTargetDeckId) {
+                  const newDecks = decks.map(d => {
+                    if (d.id === appendTargetDeckId) {
+                      return { ...d, questions: [...d.questions, ...qs] };
+                    }
+                    return d;
+                  });
+                  setDecks(newDecks);
+                  syncToCloud(newDecks, null);
+                  alert(`${qs.length}枚のカードを追加しました！`);
+                }
+                e.target.value = '';
+                setAppendTargetDeckId(null);
               };
               reader.readAsText(file);
             }} />
@@ -1220,24 +1243,29 @@
                 </div>
               </div>
 
-              {prog && (
-                <>
-                  <div className="ios-group-title">データ管理</div>
-                  <div className="ios-group">
-                    <div className="ios-row clickable" onClick={() => {
-                      if (window.confirm('この単語帳の学習進捗（何%完了したか）をリセットし、未実施の状態に戻しますか？\n※単語帳のデータ自体は消えません。')) {
-                        const newProgress = { ...allProgress, _localUpdate: Date.now() };
-                        delete newProgress[activeDeckId];
-                        setAllProgress(newProgress);
-                        syncToCloud(null, newProgress);
-                        setView('library');
-                      }
-                    }}>
-                      <div style={{color: 'var(--destructive)', fontWeight: 500}}>学習状況をリセット</div>
-                    </div>
+              <div className="ios-group-title">デッキの管理</div>
+              <div className="ios-group">
+                <div className="ios-row clickable" onClick={() => { setEditDeckData(JSON.parse(JSON.stringify(deck))); setView('edit'); }}>
+                  <div style={{color: 'var(--text-color)'}}>デッキを編集する</div>
+                  <div className="chevron-right">›</div>
+                </div>
+                <div className="ios-row clickable" onClick={() => { setAppendTargetDeckId(deck.id); if(directAppendCsvInputRef.current) directAppendCsvInputRef.current.click(); }}>
+                  <div style={{color: 'var(--accent-color)'}}>CSVからカードを追加する</div>
+                </div>
+                {prog && (
+                  <div className="ios-row clickable" onClick={() => {
+                    if (window.confirm('この単語帳の学習進捗（何%完了したか）をリセットし、未実施の状態に戻しますか？\n※単語帳のデータ自体は消えません。')) {
+                      const newProgress = { ...allProgress, _localUpdate: Date.now() };
+                      delete newProgress[activeDeckId];
+                      setAllProgress(newProgress);
+                      syncToCloud(null, newProgress);
+                      setView('library');
+                    }
+                  }}>
+                    <div style={{color: 'var(--destructive)'}}>学習状況をリセット</div>
                   </div>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
         );
