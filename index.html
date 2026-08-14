@@ -377,36 +377,13 @@
     const STORAGE_KEY_ALL_PROGRESS = 'cramming-flashcards-all-progress-v2';
 
     // --- Sub Components ---
-    function StudyHeader({ title, remainingCards, progressPercent, initialTimeLeft, onTimeUpdate, onQuit }) {
-      const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
-      useEffect(() => { setTimeLeft(initialTimeLeft); }, [initialTimeLeft]);
-      useEffect(() => {
-        const timer = setInterval(() => {
-          setTimeLeft(prev => {
-            if (prev <= 0) return 0;
-            const newTime = prev - 1000;
-            onTimeUpdate(newTime);
-            return newTime;
-          });
-        }, 1000);
-        return () => clearInterval(timer);
-      }, [onTimeUpdate]);
-
-      const formatTime = (ms) => {
-        if (ms <= 0) return "00:00:00";
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      };
-
+    function StudyHeader({ title, remainingCards, progressPercent, onQuit }) {
       return (
         <div className="header-bar" style={{ position: 'relative' }}>
           <button className="nav-btn" onClick={onQuit}>〈 戻る</button>
           <div className="header-title" style={{textAlign: 'center', width: '50%'}}>
             <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>{title}</div>
-            <div style={{fontSize: '0.95rem'}}>{formatTime(timeLeft)} • 残り約{remainingCards}枚</div>
+            <div style={{fontSize: '0.95rem'}}>残り約{remainingCards}枚</div>
           </div>
           <div style={{width: '60px'}}></div>
           {progressPercent !== undefined && (
@@ -1234,8 +1211,6 @@
               title={deck?.title}
               remainingCards={equivalentRemaining} 
               progressPercent={progressPercent}
-              initialTimeLeft={timeLeft}
-              onTimeUpdate={(t) => setTimeLeft(t)}
               onQuit={quitStudy}
             />
             <div className="content-area" style={{display: 'flex', flexDirection: 'column'}}>
@@ -1251,49 +1226,36 @@
                     
                     {queue[0]?.explanation && (
                       <div style={{width: '100%', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--divider)'}}>
-                        {!showExplanation ? (
-                          <button 
-                            style={{
-                              background: 'transparent', border: '1px solid var(--accent-color)', color: 'var(--accent-color)',
-                              padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                              display: 'block', margin: '0 auto'
-                            }}
-                            onClick={(e) => { e.stopPropagation(); setShowExplanation(true); }}
-                          >
-                            解説を見る
-                          </button>
-                        ) : (
+                        <div style={{
+                          fontSize: '0.95rem',
+                          color: 'var(--text-color)',
+                          lineHeight: '1.6',
+                          textAlign: 'left',
+                          whiteSpace: 'pre-wrap',
+                          background: 'rgba(0, 122, 255, 0.05)',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          borderLeft: '4px solid var(--accent-color)',
+                          marginTop: '4px'
+                        }}>
                           <div style={{
-                            fontSize: '0.95rem',
-                            color: 'var(--text-color)',
-                            lineHeight: '1.6',
-                            textAlign: 'left',
-                            whiteSpace: 'pre-wrap',
-                            background: 'rgba(0, 122, 255, 0.05)',
-                            padding: '16px',
-                            borderRadius: '12px',
-                            borderLeft: '4px solid var(--accent-color)',
-                            marginTop: '4px'
+                            color: 'var(--accent-color)',
+                            fontWeight: 700,
+                            marginBottom: '8px',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
                           }}>
-                            <div style={{
-                              color: 'var(--accent-color)',
-                              fontWeight: 700,
-                              marginBottom: '8px',
-                              fontSize: '0.85rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                              </svg>
-                              解説
-                            </div>
-                            {queue[0].explanation}
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="12" y1="16" x2="12" y2="12"></line>
+                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            解説
                           </div>
-                        )}
+                          {queue[0].explanation}
+                        </div>
                       </div>
                     )}
                     
