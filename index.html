@@ -1262,8 +1262,34 @@
                             解説を見る
                           </button>
                         ) : (
-                          <div style={{fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', textAlign: 'left', whiteSpace: 'pre-wrap'}}>
-                            <span style={{color: 'var(--accent-color)', fontWeight: 600, marginRight: '6px'}}>解説:</span>
+                          <div style={{
+                            fontSize: '0.95rem',
+                            color: 'var(--text-color)',
+                            lineHeight: '1.6',
+                            textAlign: 'left',
+                            whiteSpace: 'pre-wrap',
+                            background: 'rgba(0, 122, 255, 0.05)',
+                            padding: '16px',
+                            borderRadius: '12px',
+                            borderLeft: '4px solid var(--accent-color)',
+                            marginTop: '4px'
+                          }}>
+                            <div style={{
+                              color: 'var(--accent-color)',
+                              fontWeight: 700,
+                              marginBottom: '8px',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                              </svg>
+                              解説
+                            </div>
                             {queue[0].explanation}
                           </div>
                         )}
