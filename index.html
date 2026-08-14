@@ -443,6 +443,7 @@
       const [studyMode, setStudyMode] = useState(null);
       const [queue, setQueue] = useState([]);
       const [isFlipped, setIsFlipped] = useState(false);
+      const [showExplanation, setShowExplanation] = useState(false);
       const [initialTotal, setInitialTotal] = useState(0);
       const [timeLeft, setTimeLeft] = useState(DEFAULT_TIME_MS);
       const [selectedTag, setSelectedTag] = useState(null);
@@ -613,12 +614,14 @@
         setInitialTotal(filteredQuestions.length);
         setTimeLeft(allProgress[activeDeckId]?.timeLeft || DEFAULT_TIME_MS);
         setIsFlipped(false);
+        setShowExplanation(false);
         setView('study');
       };
 
       const handleJudge = useCallback((result) => {
         if (!isFlipped || queue.length === 0) return;
         setIsFlipped(false);
+        setShowExplanation(false);
         
         const currentCard = { ...queue[0] };
         const targetScore = MODE_CONFIGS[studyMode].targetScore;
@@ -710,8 +713,9 @@
             let q = row[0].replace(/^"|"$/g, '').trim();
             let a = row[1].replace(/^"|"$/g, '').trim();
             let tags = (row.length >= 3) ? row[2].replace(/^"|"$/g, '').trim() : '';
+            let explanation = (row.length >= 4) ? row[3].replace(/^"|"$/g, '').trim() : '';
             if (i === 0 && (q.toLowerCase().includes('question') || q.includes('問題'))) continue;
-            if (q && a) questions.push({ id: Date.now() + Math.random(), question: q, answer: a, tags: tags });
+            if (q && a) questions.push({ id: Date.now() + Math.random(), question: q, answer: a, tags: tags, explanation: explanation });
           }
         }
         return questions;
@@ -742,7 +746,7 @@
               <div className="ios-group" style={{padding: '16px', fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-color)'}}>
                 ライブラリ画面の <strong style={{color: 'var(--accent-color)'}}>「新規作成」</strong> から、手入力で単語帳を作成できます。<br/><br/>
                 パソコンで作成したExcelやスプレッドシートのデータを一気に読み込むには、画面左上の <strong style={{color: 'var(--accent-color)'}}>「読込」</strong> をタップし、保存したCSVファイルを選択してください。<br/>
-                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>※CSVの形式は「A列：問題」「B列：答え」「C列：タグ」にしてください。</span>
+                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>※CSVの形式は「A列：問題」「B列：答え」「C列：タグ」「D列：解説（任意）」にしてください。</span>
               </div>
 
               <div className="ios-group-title">2. 効率よく暗記する（独自アルゴリズム）</div>
@@ -877,7 +881,7 @@
               
               <div className="ios-group">
                 <div className="ios-row clickable" onClick={() => {
-                  setEditDeckData({ id: 'deck-' + Date.now(), title: '', questions: [{ id: Date.now(), question: '', answer: '', tags: '' }] });
+                  setEditDeckData({ id: 'deck-' + Date.now(), title: '', questions: [{ id: Date.now(), question: '', answer: '', tags: '', explanation: '' }] });
                   setView('edit');
                 }}>
                   <div style={{color: 'var(--accent-color)', fontWeight: 500}}>新規作成</div>
@@ -993,7 +997,7 @@
 
               <div className="ios-group-title">一括操作</div>
               <div className="ios-group">
-                <div className="ios-row clickable" onClick={() => setEditDeckData({...editDeckData, questions: [...editDeckData.questions, { id: Date.now(), question: '', answer: '', tags: '' }]})}>
+                <div className="ios-row clickable" onClick={() => setEditDeckData({...editDeckData, questions: [...editDeckData.questions, { id: Date.now(), question: '', answer: '', tags: '', explanation: '' }]})}>
                   <div style={{color: 'var(--accent-color)'}}>新しいカードを追加</div>
                 </div>
                 <div className="ios-row clickable" onClick={() => {if(appendCsvInputRef.current) appendCsvInputRef.current.click()}}>
@@ -1012,6 +1016,9 @@
                   </div>
                   <div className="ios-row" style={{paddingTop: '8px', paddingBottom: '8px'}}>
                     <input type="text" className="ios-input" placeholder="タグ (カンマ区切り)" value={q.tags || ''} onChange={e => { const n = [...editDeckData.questions]; n[index].tags = e.target.value; setEditDeckData({...editDeckData, questions: n}); }} />
+                  </div>
+                  <div className="ios-row" style={{paddingTop: '8px', paddingBottom: '8px'}}>
+                    <input type="text" className="ios-input" placeholder="解説 (任意)" value={q.explanation || ''} onChange={e => { const n = [...editDeckData.questions]; n[index].explanation = e.target.value; setEditDeckData({...editDeckData, questions: n}); }} />
                   </div>
                   <div className="ios-row clickable" onClick={() => { const n = [...editDeckData.questions]; n.splice(index, 1); setEditDeckData({...editDeckData, questions: n}); }}>
                     <div style={{color: 'var(--destructive)'}}>このカードを削除</div>
@@ -1240,6 +1247,29 @@
                   <div className="card-face card-back">
                     <span className="card-label">A.</span>
                     {queue[0]?.answer}
+                    
+                    {queue[0]?.explanation && (
+                      <div style={{marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--divider)'}}>
+                        {!showExplanation ? (
+                          <button 
+                            style={{
+                              background: 'transparent', border: '1px solid var(--accent-color)', color: 'var(--accent-color)',
+                              padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                              display: 'block', margin: '0 auto'
+                            }}
+                            onClick={(e) => { e.stopPropagation(); setShowExplanation(true); }}
+                          >
+                            解説を見る
+                          </button>
+                        ) : (
+                          <div style={{fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', textAlign: 'left', whiteSpace: 'pre-wrap'}}>
+                            <span style={{color: 'var(--accent-color)', fontWeight: 600, marginRight: '6px'}}>解説:</span>
+                            {queue[0].explanation}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="score-badge">定着度 {Math.max(0, queue[0]?.score || 0)} / {MODE_CONFIGS[studyMode].targetScore}</div>
                   </div>
                 </div>
